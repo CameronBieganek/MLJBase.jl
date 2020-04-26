@@ -1,25 +1,28 @@
 
 
+# --- Simple test case. ---
+
 y = categorical(
     ['b', 'c', 'a', 'b', 'b', 'b', 'c', 'c', 'c', 'a', 'a', 'a']
 )
 
-
 scv = StratifiedCV(nfolds=3)
 
-MLJBase.train_test_pairs(scv, 1:12, nothing, y)
-MLJBase.my_train_test_pairs1(scv, 1:12, nothing, y)
-MLJBase.my_train_test_pairs2(scv, 1:12, nothing, y)
+MLJBase.train_test_pairs(scv, 1:12, y)
+MLJBase.train_test_pairs_sort_not_invariant(scv, 1:12, y)
+MLJBase.train_test_pairs_sort_invariant(scv, 1:12, y)
+MLJBase.train_test_pairs_O_n_not_invariant(scv, 1:12, y)
+MLJBase.train_test_pairs_O_n_invariant(scv, 1:12, y)
 
 
-# Benchmark.
+
+# --- Benchmark. ---
 
 using BenchmarkTools
 
-cv = CV(nfolds=5)
 scv = StratifiedCV(nfolds=5)
 
-N = 300_000
+N = 10_000_000
 rows = 1:(10N)
 
 y = (
@@ -29,12 +32,15 @@ y = (
 );
 
 
-@btime MLJBase.train_test_pairs($scv, $rows, nothing, $y);
-@btime MLJBase.my_train_test_pairs1($scv, $rows, nothing, $y);
-@btime MLJBase.my_train_test_pairs2($scv, $rows, nothing, $y);
+@btime MLJBase.train_test_pairs($scv, $rows, $y);
+@btime MLJBase.train_test_pairs_sort_not_invariant($scv, $rows, $y);
+@btime MLJBase.train_test_pairs_sort_invariant($scv, $rows, $y);
+@btime MLJBase.train_test_pairs_O_n_not_invariant($scv, $rows, $y);
+@btime MLJBase.train_test_pairs_O_n_invariant($scv, $rows, $y);
 
 
-# Attempting to replicate the performance of StatsBase.countmap
+
+# --- Attempting to replicate the performance of StatsBase.countmap ---
 function my_countmap(x::AbstractVector{T}) where {T}
     d = Dict{T, Int}()
     for v in x
