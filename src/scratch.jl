@@ -2,6 +2,8 @@
 
 # --- Simple test case. ---
 
+using MLJBase
+
 y = categorical(
     ['b', 'c', 'a', 'b', 'b', 'b', 'c', 'c', 'c', 'a', 'a', 'a']
 )
@@ -11,8 +13,10 @@ scv = StratifiedCV(nfolds=3)
 MLJBase.train_test_pairs(scv, 1:12, y)
 MLJBase.train_test_pairs_sort_not_invariant(scv, 1:12, y)
 MLJBase.train_test_pairs_sort_invariant(scv, 1:12, y)
+MLJBase.train_test_pairs_sort_invariant2(scv, 1:12, y)
 MLJBase.train_test_pairs_O_n_not_invariant(scv, 1:12, y)
 MLJBase.train_test_pairs_O_n_invariant(scv, 1:12, y)
+MLJBase.train_test_pairs_O_n_invariant2(scv, 1:12, y)
 
 
 
@@ -35,8 +39,10 @@ y = (
 @btime MLJBase.train_test_pairs($scv, $rows, $y);
 @btime MLJBase.train_test_pairs_sort_not_invariant($scv, $rows, $y);
 @btime MLJBase.train_test_pairs_sort_invariant($scv, $rows, $y);
+@btime MLJBase.train_test_pairs_sort_invariant2($scv, $rows, $y);
 @btime MLJBase.train_test_pairs_O_n_not_invariant($scv, $rows, $y);
 @btime MLJBase.train_test_pairs_O_n_invariant($scv, $rows, $y);
+@btime MLJBase.train_test_pairs_O_n_invariant2($scv, $rows, $y);
 
 
 

@@ -371,6 +371,48 @@ function train_test_pairs_sort_invariant(stratified_cv::StratifiedCV, rows, y)
 end
 
 
+function train_test_pairs_sort_invariant2(stratified_cv::StratifiedCV, rows, y)
+
+    st = scitype(y)
+    st <: AbstractArray{<:Finite} ||
+        error("Supplied target has scitpye $st but stratified "*
+              "cross-validation applies only to classification problems. ")
+
+    if stratified_cv.shuffle
+        rows=shuffle!(stratified_cv.rng, collect(rows))
+    end
+
+    n_obs = length(rows)
+    n_folds = stratified_cv.nfolds
+    obs_per_fold, rem = divrem(n_obs, n_folds)
+
+    # The next two steps can be thought of as reshaping sorted_rows into a
+    # ragged matrix with n_folds rows. Each row is a fold. There are
+    # obs_per_fold+1 columns in the first r rows and obs_per_fold columns in
+    # the remaining rows. Because sorted_rows is sorted by the category
+    # levels, and because matrices are column-major, the levels are spread
+    # evenly between the rows.
+
+    # unique() preserves the order of appearance of the levels.
+    # We need this so that the results are invariant to renaming of the levels.
+    levels = unique(y[rows])
+    order = LittleDict(levels .=> eachindex(levels))
+    sorted_rows = sort(rows; by=(r -> order[y[r]]), alg=MergeSort)
+
+    folds = map(1:n_folds) do i
+        len = i <= rem ? obs_per_fold+1 : obs_per_fold
+        ind = range(i; step=n_folds, length=len)
+        sorted_rows[ind]
+    end
+
+    map(1:n_folds) do i
+        train_folds = vcat(folds[ 1 : i-1 ], folds[ i+1 : end ])
+        train = reduce(vcat, train_folds)
+        (train, folds[i])
+    end
+end
+
+
 # O(n) algorithm, but might be harder to understand.
 function train_test_pairs_O_n_not_invariant(stratified_cv::StratifiedCV, rows, y)
 
@@ -454,6 +496,60 @@ function train_test_pairs_O_n_invariant(stratified_cv::StratifiedCV, rows, y)
     initial_lookup_indices = 1 .+ cumsum([0; ordered_level_count[1:end-1]])
 
     lookup_indices = Dict(y_levels .=> initial_lookup_indices)
+
+    folds = [Int[] for _ in 1:n_folds]
+    for fold in folds
+        sizehint!(fold, obs_per_fold)
+    end
+
+    for i in 1:n_obs
+        level = y_included[i]
+
+        lookup_index = lookup_indices[level]
+        lookup_indices[level] = lookup_index + 1
+
+        fold_index = fold_lookup[lookup_index]
+        push!(folds[fold_index], rows[i])
+    end
+
+    map(1:n_folds) do i
+        train_folds = vcat(folds[ 1 : i-1 ], folds[ i+1 : end ])
+        train = reduce(vcat, train_folds)
+        (train, folds[i])
+    end
+end
+
+
+function train_test_pairs_O_n_invariant2(stratified_cv::StratifiedCV, rows, y)
+
+    st = scitype(y)
+    st <: AbstractArray{<:Finite} ||
+        error("Supplied target has scitpye $st but stratified "*
+              "cross-validation applies only to classification problems. ")
+
+    if stratified_cv.shuffle
+        rows=shuffle!(stratified_cv.rng, collect(rows))
+    end
+
+    n_folds = stratified_cv.nfolds
+    n_obs = length(rows)
+    obs_per_fold = div(n_obs, n_folds)
+
+    y_included = y[rows]
+    level_count_dict = countmap(y_included)
+
+    # unique() preserves the order of appearance of the levels.
+    # We need this so that the results are invariant to renaming of the levels.
+    y_levels = unique(y_included)
+    level_count = [level_count_dict[level] for level in y_levels]
+
+    # Use this vector to determine in which fold to put the i-th observation.
+    fold_lookup = collect(Itr.take(Itr.cycle(1:n_folds), n_obs))
+
+    # For each level, the index of fold_lookup where you start looking.
+    initial_lookup_indices = 1 .+ cumsum([0; level_count[1:end-1]])
+
+    lookup_indices = LittleDict(y_levels .=> initial_lookup_indices)
 
     folds = [Int[] for _ in 1:n_folds]
     for fold in folds
